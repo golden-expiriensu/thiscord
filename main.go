@@ -15,7 +15,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	d := dm.New()
+	d := dm.NewDispatcher()
 	log.Printf("listening on %s\n", l.Addr())
 
 	for {
@@ -25,14 +25,14 @@ func main() {
 		}
 		acc, err := auth.Login(conn)
 		if err != nil {
-			conn.Write([]byte(fmt.Sprintf("Could not log in: %v\n", err)))
+			conn.Write([]byte(fmt.Sprintf("Could not log you in: %v\n", err)))
 			conn.Close()
 			continue
 		}
 		go func(acc *auth.Account) {
 			err := d.Join(acc)
 			if err != nil {
-				conn.Write([]byte(fmt.Sprintf("Could not log in: %v\n", err)))
+				conn.Write([]byte(fmt.Sprintf("Error: %v\n", err)))
 				conn.Close()
 			}
 		}(acc)

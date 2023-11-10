@@ -18,8 +18,11 @@ func Login(conn *net.TCPConn) (*Account, error) {
 	if n == 0 || err != nil {
 		return nil, errors.New("could not read from TCP connection")
 	}
-	if n == len(buff) {
-		return nil, errors.New("your name is too long")
+	if n < 3 {
+		return nil, errors.New("your name is too short, minimum is 3 characters")
+	}
+	if n > 63 {
+		return nil, errors.New("your name is too long, maximum is 63 characters")
 	}
 	name := strings.TrimRight(string(buff[:n]), "\n")
 	return &Account{conn, name}, nil
