@@ -2,10 +2,8 @@ package dm
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"log"
-	"strings"
 )
 
 type Dispatcher struct {
@@ -16,24 +14,19 @@ func NewDispatcher() *Dispatcher {
 	return &Dispatcher{newSessionsBook()}
 }
 
-type Sender interface {
-	Session
+type Account interface {
 	io.ReadWriteCloser
 	Name() string
 }
 
 var ErrCouldNotWriteToTCP = errors.New("could not write to TCP connection")
 
-const usage = "Message must be of the form \"<name of receiver> <message to send>\"\n"
-
-func (d *Dispatcher) Join(acc Sender) error {
+func (d *Dispatcher) Join(acc Account) error {
 	if err := d.sessions.new(acc); err != nil {
 		return err
 	}
-
-	welcome := []byte(fmt.Sprintf("Welcome %s!\n", acc.Name()))
-	if n, err := acc.Write(welcome); n == 0 || err != nil {
-		return ErrCouldNotWriteToTCP
+	if err := welcome(acc); err != nil {
+		return err
 	}
 	log.Printf("user %s joined\n", acc.Name())
 
@@ -49,40 +42,31 @@ func (d *Dispatcher) Join(acc Sender) error {
 			return err
 		}
 
-		read := strings.SplitN(string(buff[:n]), " ", 2)
-		if len(read) != 2 || read[0] == "" || read[1] == "\n" {
-			acc.Write([]byte(usage))
-			continue
-		}
-		name, msg := read[0], read[1]
-		if name == acc.Name() {
-			if n, err = acc.Write([]byte("Can't send message to yourself\n")); n == 0 || err != nil {
-				return ErrCouldNotWriteToTCP
-			}
-			continue
-		}
-
-		to, err := d.sessions.get(name)
+		msg, err := parseMessage(buff[:n])
 		if err != nil {
-			if n, err = acc.Write([]byte(err.Error())); n == 0 || err != nil {
-				return ErrCouldNotWriteToTCP
+			if err := send(acc, err.Error()); err != nil {
+				return err
 			}
 			continue
 		}
 
-		n, err = to.Receive([]byte(msg), acc.Name())
-		if n == 0 || err != nil {
-			fmt.Print(err.Error())
-			sorry := fmt.Sprintf("Sorry, your message to %s was not delivered", name)
-			if n, err = acc.Write([]byte(sorry)); n == 0 || err != nil {
-				return ErrCouldNotWriteToTCP
+		if msg.name == acc.Name() {
+			if err := send(acc, sendSelfMsg); err != nil {
+				return err
 			}
 			continue
 		}
 
-		success := fmt.Sprintf("User %s received your message\n", name)
-		if n, err = acc.Write([]byte(success)); n == 0 || err != nil {
-			return ErrCouldNotWriteToTCP
+		to, err := d.sessions.get(msg.name)
+		if err != nil {
+			if err := send(acc, err.Error()); err != nil {
+				return err
+			}
+			continue
+		}
+
+		if err := deliver(acc, to, msg.text); err != nil {
+			return err
 		}
 	}
 	return nil

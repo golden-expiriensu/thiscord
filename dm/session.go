@@ -6,48 +6,44 @@ import (
 )
 
 type book struct {
-	users map[string]Session
+	accs  map[string]Account
 	mutex sync.RWMutex
-}
-
-type Session interface {
-	Receive(msg []byte, sender string) (int, error)
 }
 
 func newSessionsBook() *book {
 	return &book{
-		users: make(map[string]Session),
+		accs: make(map[string]Account),
 	}
 }
 
-func (b *book) new(acc Sender) error {
+func (b *book) new(acc Account) error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
-	if _, ok := b.users[acc.Name()]; ok {
-		return fmt.Errorf("User %s already exists\n", acc.Name())
+	if _, ok := b.accs[acc.Name()]; ok {
+		return fmt.Errorf("User %s already exists", acc.Name())
 	}
-	b.users[acc.Name()] = acc
+	b.accs[acc.Name()] = acc
 	return nil
 }
 
-func (b *book) get(name string) (Session, error) {
+func (b *book) get(name string) (Account, error) {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
 
-	if _, ok := b.users[name]; !ok {
-		return nil, fmt.Errorf("User %s not found\n", name)
+	if _, ok := b.accs[name]; !ok {
+		return nil, fmt.Errorf("User %s not found", name)
 	}
-	return b.users[name], nil
+	return b.accs[name], nil
 }
 
-func (b *book) end(acc Sender) error {
+func (b *book) end(acc Account) error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
-	if _, ok := b.users[acc.Name()]; !ok {
-		return fmt.Errorf("User %s not found\n", acc.Name())
+	if _, ok := b.accs[acc.Name()]; !ok {
+		return fmt.Errorf("User %s not found", acc.Name())
 	}
-	delete(b.users, acc.Name())
+	delete(b.accs, acc.Name())
 	return nil
 }

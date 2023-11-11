@@ -5,7 +5,7 @@ import (
 	"log"
 	"net"
 
-	"github.com/golden-expiriensu/thiscord/auth"
+	"github.com/golden-expiriensu/thiscord/account"
 	"github.com/golden-expiriensu/thiscord/dm"
 )
 
@@ -23,18 +23,18 @@ func main() {
 		if err != nil {
 			log.Printf("could not accept TCP connection: %v\n", err)
 		}
-		acc, err := auth.Login(conn)
+		acc, err := account.New(conn)
 		if err != nil {
 			conn.Write([]byte(fmt.Sprintf("Could not log you in: %v\n", err)))
 			conn.Close()
 			continue
 		}
-		go func(acc *auth.Account) {
+		go func() {
 			err := d.Join(acc)
 			if err != nil {
 				conn.Write([]byte(fmt.Sprintf("Error: %v\n", err)))
 				conn.Close()
 			}
-		}(acc)
+		}()
 	}
 }
